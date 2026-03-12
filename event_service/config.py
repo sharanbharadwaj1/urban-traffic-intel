@@ -1,0 +1,7 @@
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+
+INPUT_STREAM = "tracked_objects"
+
+TRACK_TTL = 30
+MAX_TRACK_HISTORY = 20

@@ -1,0 +1,217 @@
+To run the **dashboard**, you just need to start the Streamlit app while the rest of your pipeline is running.
+
+Follow this order so everything works correctly.
+
+---
+
+# 1. Make Sure Infrastructure Is Running
+
+From the **infra** folder:
+
+```powershell
+docker compose up -d
+```
+
+Check containers:
+
+```powershell
+docker ps
+```
+
+You should see:
+
+```text
+redis
+postgres
+neo4j
+```
+
+Redis is the important one for the dashboard.
+
+---
+
+# 2. Start Vision Service
+
+Open a terminal:
+
+```powershell
+cd vision_service
+python main.py cam_1
+```
+
+This starts the **detection pipeline**.
+
+It should print something like:
+
+```text
+Published frame 5
+Published frame 10
+```
+
+---
+
+# 3. Start Tracking Service
+
+Open another terminal:
+
+```powershell
+cd tracking_service
+python main.py
+```
+
+You should see:
+
+```text
+Processed frame 10
+Processed frame 15
+```
+
+Now objects are getting **track IDs**.
+
+---
+
+# 4. Start Event Detection Service
+
+Open another terminal:
+
+```powershell
+cd event_service
+python main.py
+```
+
+If congestion is detected you will see:
+
+```text
+EVENT DETECTED: traffic_congestion
+```
+
+---
+
+# 5. Run the Dashboard
+
+Open another terminal:
+
+```powershell
+cd dashboard
+streamlit run app.py
+```
+
+After a few seconds Streamlit will print something like:
+
+```text
+Local URL: http://localhost:8501
+```
+
+Open that URL in your browser.
+
+---
+
+# 6. What You Should See
+
+Your dashboard will show:
+
+### Latest detections
+
+Events coming from:
+
+```text
+vision_detections
+```
+
+### Latest tracked objects
+
+Events coming from:
+
+```text
+tracked_objects
+```
+
+### Track history
+
+Data stored in Redis keys like:
+
+```text
+track:cam_1:606
+track:cam_1:577
+```
+
+This means the **whole system pipeline is alive**.
+
+---
+
+# 7. Full System Flow (What Is Running)
+
+When everything is started, your system is working like this:
+
+```text
+traffic.mp4
+     │
+     ▼
+Vision Service
+(object detection)
+     │
+     ▼
+Redis Stream
+vision_detections
+     │
+     ▼
+Tracking Service
+(assign IDs)
+     │
+     ▼
+Redis Stream
+tracked_objects
+     │
+     ▼
+Event Engine
+(congestion detection)
+     │
+     ▼
+Redis Track History
+     │
+     ▼
+Dashboard
+(stream inspector)
+```
+
+---
+
+# 8. Quick Tip While Debugging
+
+If something doesn't appear in the dashboard, check Redis manually:
+
+```powershell
+docker exec -it <redis_container> redis-cli
+```
+
+Then run:
+
+```text
+XRANGE vision_detections - +
+```
+
+or
+
+```text
+XRANGE tracked_objects - +
+```
+
+This tells you if events are actually entering the stream.
+
+---
+
+# 9. Recommended Way to Run During Development
+
+Open **5 terminals**:
+
+1. infra
+2. vision_service
+3. tracking_service
+4. event_service
+5. dashboard
+
+This mirrors how **distributed services run independently**.
+
+---
+
+Once you confirm the dashboard loads and shows events, the next step will be implementing **vehicle speed estimation**, which introduces **motion analytics from bounding box trajectories** — a very important concept in video intelligence systems.

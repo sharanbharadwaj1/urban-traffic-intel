@@ -1,0 +1,370 @@
+Good choice. Using **Redis for track history** makes the system closer to a real production **stateful streaming architecture**.
+
+Now Redis will play **two roles**:
+
+```text
+1. Event Stream Broker  → Redis Streams
+2. State Store          → Track History
+```
+
+This pattern is very similar to how **Kafka + Redis / Kafka + RocksDB** are used in large systems.
+
+---
+
+# 1. Architecture After This Change
+
+Your pipeline now becomes:
+
+```
+Video
+  ↓
+Vision Service
+  ↓
+Redis Stream
+vision_detections
+  ↓
+Tracking Service
+  ↓
+Redis Stream
+tracked_objects
+  ↓
+Event Detection Service
+  ↓
+Redis State Store
+track_history
+```
+
+The **event engine reads tracked objects and writes state to Redis**.
+
+---
+
+# 2. Redis Key Design (Very Important)
+
+Designing good keys is critical in distributed systems.
+
+We store history like this:
+
+```
+track:{camera_id}:{track_id}
+```
+
+Example:
+
+```
+track:cam_1:606
+```
+
+Value stored:
+
+```
+list of recent frames
+```
+
+Example:
+
+```json
+[
+  {"frame":600,"bbox":[...],"timestamp":...},
+  {"frame":605,"bbox":[...],"timestamp":...},
+  {"frame":610,"bbox":[...],"timestamp":...}
+]
+```
+
+Redis command used:
+
+```
+LPUSH
+LTRIM
+EXPIRE
+```
+
+This keeps **only recent history**.
+
+---
+
+# 3. Event Detection Service Structure
+
+Create a new service:
+
+```
+event_service/
+
+config.py
+stream_reader.py
+track_store.py
+event_rules.py
+main.py
+```
+
+Each file has a **clear architectural role**.
+
+| File          | Responsibility             |
+| ------------- | -------------------------- |
+| stream_reader | consume tracked_objects    |
+| track_store   | manage Redis track history |
+| event_rules   | detect congestion etc      |
+| main          | orchestrate everything     |
+
+---
+
+# 4. Event Service Config
+
+`event_service/config.py`
+
+```python
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+
+INPUT_STREAM = "tracked_objects"
+
+TRACK_TTL = 30
+MAX_TRACK_HISTORY = 20
+```
+
+Meaning:
+
+```
+keep last 20 observations
+expire track after 30 seconds
+```
+
+---
+
+# 5. Track State Store (Redis)
+
+`track_store.py`
+
+```python
+import redis
+import json
+
+
+class TrackStore:
+
+    def __init__(self, host, port, max_history, ttl):
+
+        self.redis = redis.Redis(host=host, port=port)
+        self.max_history = max_history
+        self.ttl = ttl
+
+    def update_track(self, camera_id, obj, frame_id):
+
+        key = f"track:{camera_id}:{obj['track_id']}"
+
+        entry = {
+            "frame": frame_id,
+            "bbox": obj["bbox"],
+            "confidence": obj["confidence"]
+        }
+
+        self.redis.lpush(key, json.dumps(entry))
+
+        self.redis.ltrim(key, 0, self.max_history)
+
+        self.redis.expire(key, self.ttl)
+
+    def get_track_history(self, camera_id, track_id):
+
+        key = f"track:{camera_id}:{track_id}"
+
+        history = self.redis.lrange(key, 0, -1)
+
+        return [json.loads(h) for h in history]
+```
+
+This creates a **rolling window of track history**.
+
+---
+
+# 6. Stream Reader
+
+Reuse your previous reader but consume:
+
+```
+tracked_objects
+```
+
+---
+
+# 7. Event Engine Logic
+
+`event_rules.py`
+
+First simple rule: **congestion detection**
+
+```python
+def detect_congestion(objects):
+
+    vehicle_count = len(objects)
+
+    if vehicle_count > 15:
+
+        return {
+            "event_type": "traffic_congestion",
+            "vehicle_count": vehicle_count
+        }
+
+    return None
+```
+
+This is intentionally simple for now.
+
+Later we add:
+
+```
+speed estimation
+stopped vehicles
+lane density
+```
+
+---
+
+# 8. Event Service Main
+
+`main.py`
+
+```python
+from stream_reader import StreamReader
+from track_store import TrackStore
+from event_rules import detect_congestion
+import config
+
+
+reader = StreamReader(
+    config.REDIS_HOST,
+    config.REDIS_PORT,
+    config.INPUT_STREAM
+)
+
+store = TrackStore(
+    config.REDIS_HOST,
+    config.REDIS_PORT,
+    config.MAX_TRACK_HISTORY,
+    config.TRACK_TTL
+)
+
+for message in reader.read():
+
+    camera_id = message["camera_id"]
+    frame_id = message["frame_id"]
+    objects = message["objects"]
+
+    for obj in objects:
+
+        store.update_track(camera_id, obj, frame_id)
+
+    event = detect_congestion(objects)
+
+    if event:
+
+        print("EVENT DETECTED:", event)
+```
+
+Now your system can **detect traffic congestion**.
+
+---
+
+# 9. What Happens Internally
+
+For each object:
+
+```
+track:cam_1:606
+```
+
+Redis stores a short history.
+
+Example:
+
+```
+frame 660
+frame 655
+frame 650
+frame 645
+```
+
+This allows the system to compute:
+
+```
+speed
+stationary time
+direction
+```
+
+later.
+
+---
+
+# 10. Architecture Concept You Just Implemented
+
+This pattern is called:
+
+**Externalized Stateful Stream Processing**
+
+Meaning:
+
+```
+stream events
+↓
+store state in distributed store
+↓
+process events using shared state
+```
+
+This is the same design philosophy used in:
+
+* Apache Flink
+* Kafka Streams
+* Spark Structured Streaming
+
+---
+
+# 11. Your Current System (Very Realistic Now)
+
+Your architecture now looks like this:
+
+```
+Sensors
+  Cameras
+
+Perception
+  Detection
+  Tracking
+
+Streaming
+  Redis Streams
+
+State Store
+  Redis Track History
+
+Event Intelligence
+  Event Engine
+
+Storage
+  PostgreSQL
+  Neo4j
+```
+
+This is already similar to **production AI analytics pipelines**.
+
+---
+
+# 12. What We Will Build Next
+
+The system currently detects only **vehicle count congestion**.
+
+Next we will implement **much more interesting intelligence**:
+
+```
+vehicle speed estimation
+stopped vehicle detection
+illegal parking detection
+```
+
+These require **geometry calculations on track history**.
+
+---
+
+If you'd like, I can also show you something extremely useful next:
+
+How to build a **real-time visual debugging dashboard for your Redis streams**, which makes debugging distributed AI systems **10× easier**.

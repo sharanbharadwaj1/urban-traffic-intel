@@ -1,0 +1,12 @@
+ultralytics
+opencv-python
+torch
+redis
+fastapi
+uvicorn
+langchain
+langgraph
+neo4j
+psycopg2-binary
+supervision
+streamlit

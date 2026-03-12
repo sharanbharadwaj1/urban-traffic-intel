@@ -1,0 +1,370 @@
+Good question. This is a **classic systems architecture trade-off** between **in-memory state vs external state store**.
+
+We’ll compare them like an architect would.
+
+---
+
+# 1. In-Memory Track History
+
+The event engine keeps track history **inside the process memory**.
+
+Example structure inside the service:
+
+```python
+track_memory = {
+    "cam_1": {
+        606: [frame600, frame601, frame602],
+        577: [frame600, frame601]
+    }
+}
+```
+
+The event engine directly updates this dictionary as new frames arrive.
+
+---
+
+## Architecture
+
+```text
+tracked_objects
+      │
+      ▼
+Event Engine
+      │
+      └── in-memory track history
+```
+
+---
+
+## Advantages
+
+### Extremely fast
+
+Memory access is **nanoseconds**.
+
+No network calls.
+
+Perfect for real-time processing.
+
+---
+
+### Very simple
+
+Implementation is straightforward.
+
+No extra services required.
+
+---
+
+### Low infrastructure overhead
+
+No extra Redis calls.
+
+Your current stack stays:
+
+```text
+Redis
+PostgreSQL
+Neo4j
+```
+
+---
+
+## Disadvantages
+
+### State disappears if service crashes
+
+If the event engine restarts:
+
+```text
+track history = lost
+```
+
+The system must rebuild state.
+
+---
+
+### Cannot scale across multiple workers easily
+
+If you run:
+
+```text
+event_engine_1
+event_engine_2
+```
+
+each will have **different memory state**.
+
+This breaks consistency.
+
+---
+
+### Harder to share state across services
+
+Only that service can access the history.
+
+---
+
+# 2. Redis Track History
+
+Track history stored in Redis.
+
+Example structure:
+
+```text
+key: track_history:cam_1:606
+value:
+frame600
+frame601
+frame602
+```
+
+---
+
+## Architecture
+
+```text
+tracked_objects
+      │
+      ▼
+Event Engine
+      │
+      ▼
+Redis State Store
+```
+
+Now Redis becomes both:
+
+```text
+event stream broker
+state store
+```
+
+---
+
+## Advantages
+
+### Fault tolerance
+
+If event engine crashes:
+
+```text
+state still exists in Redis
+```
+
+Processing can resume.
+
+---
+
+### Horizontal scaling
+
+Multiple event workers can run:
+
+```text
+event_worker_1
+event_worker_2
+event_worker_3
+```
+
+All share the same state.
+
+---
+
+### Enables distributed analytics
+
+Other services can access the state.
+
+Example:
+
+* analytics dashboards
+* anomaly detectors
+* ML agents
+
+---
+
+## Disadvantages
+
+### Slightly slower
+
+Each update requires **network call to Redis**.
+
+Latency:
+
+```text
+~0.5–1 ms
+```
+
+Still very fast but slower than RAM.
+
+---
+
+### More complex implementation
+
+You must design:
+
+```text
+state keys
+TTL policies
+cleanup logic
+```
+
+---
+
+### More Redis load
+
+Redis now handles:
+
+```text
+stream messages
+state storage
+```
+
+---
+
+# 3. Comparison Summary
+
+| Factor                 | In Memory      | Redis      |
+| ---------------------- | -------------- | ---------- |
+| Speed                  | Extremely fast | Very fast  |
+| Crash Recovery         | Lost state     | Persistent |
+| Scaling                | Hard           | Easy       |
+| Complexity             | Simple         | Moderate   |
+| Production Suitability | Prototype      | Production |
+
+---
+
+# 4. What Real Systems Do
+
+Most production video analytics systems use a **hybrid approach**.
+
+```text
+Local memory
+    ↓
+Short-term track buffer
+
+Redis
+    ↓
+longer-term state
+```
+
+Meaning:
+
+```text
+last few seconds → memory
+important state → Redis
+```
+
+This gives:
+
+```text
+speed + reliability
+```
+
+---
+
+# 5. What We Should Use
+
+For your laptop and learning goals:
+
+Start with **in-memory track history**.
+
+Reasons:
+
+* easier to understand
+* easier to debug
+* faster for development
+
+Later we will **upgrade it to Redis-backed state** to simulate production architecture.
+
+---
+
+# 6. Architecture Decision
+
+Your event engine will use:
+
+```text
+Sliding Window Memory Buffer
+```
+
+Example:
+
+```text
+last 10 seconds of track data
+```
+
+Used to detect:
+
+* congestion
+* illegal parking
+* stopped vehicles
+
+---
+
+# 7. Important Concept for Your Notes
+
+Write this concept:
+
+**Stateful Stream Processing**
+
+Definition:
+
+```text
+Processing streaming data while maintaining
+state across multiple events.
+```
+
+Examples:
+
+* fraud detection
+* traffic analytics
+* recommendation systems
+* anomaly detection
+
+Your event engine will be **stateful**.
+
+---
+
+# 8. Your Architecture Now
+
+Your system layers are becoming very realistic:
+
+```text
+Sensors
+   Cameras
+
+Perception
+   Detection
+   Tracking
+
+Streaming
+   Redis Streams
+
+Stateful Processing
+   Event Engine
+
+Storage
+   PostgreSQL
+   Neo4j
+```
+
+This is already **a real AI platform architecture**.
+
+---
+
+# Next Step
+
+Now we design the **Event Detection Service**.
+
+This will introduce three important concepts:
+
+1. **Sliding Window Processing**
+2. **Track Memory Buffer**
+3. **Rule-Based Event Detection**
+
+Example first event we implement:
+
+```text
+traffic congestion detection
+```
+
+But before coding, I want to show you **one architectural diagram that will make the Event Engine extremely clean and scalable**.

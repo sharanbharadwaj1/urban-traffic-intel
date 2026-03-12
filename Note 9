@@ -1,0 +1,304 @@
+Excellent — that means your **entire pipeline is now operational and observable**, which is a big milestone. 🎯
+
+Right now your system is doing **end-to-end AI streaming**:
+
+```text
+Video
+  ↓
+Vision Service (Detection)
+  ↓
+Redis Stream (vision_detections)
+  ↓
+Tracking Service (Object IDs)
+  ↓
+Redis Stream (tracked_objects)
+  ↓
+Event Engine (stateful processing)
+  ↓
+Redis State Store (track history)
+  ↓
+Dashboard (observability)
+```
+
+You have essentially built a **mini real-time AI analytics platform**.
+
+---
+
+# Next Intelligence Layer: Vehicle Motion Analysis
+
+The first **behavioral intelligence** we should add is:
+
+**Vehicle Speed Estimation**
+
+This will allow us to detect:
+
+* stopped vehicles
+* slow congestion
+* abnormal speed
+* illegal parking
+
+This uses **track history stored in Redis**.
+
+---
+
+# 1. Concept: Motion from Bounding Boxes
+
+Each track already has a history like:
+
+```json
+[
+ {"frame":650,"bbox":[430,360,560,470]},
+ {"frame":655,"bbox":[435,360,565,470]},
+ {"frame":660,"bbox":[440,360,570,470]}
+]
+```
+
+From this we compute the **center of the bounding box**.
+
+```text
+center_x = (x1 + x2) / 2
+center_y = (y1 + y2) / 2
+```
+
+This gives the **object position in pixels**.
+
+---
+
+# 2. Compute Pixel Displacement
+
+Example:
+
+```text
+frame 650 → center (495,415)
+frame 660 → center (505,415)
+```
+
+Movement:
+
+```text
+dx = 10 pixels
+dy = 0
+distance ≈ 10 pixels
+```
+
+---
+
+# 3. Convert to Speed
+
+Speed formula:
+
+```text
+speed = distance / time
+```
+
+Time difference:
+
+```text
+Δt = frame_difference / fps
+```
+
+Example:
+
+```text
+10 pixels / 0.5 seconds
+```
+
+This gives **pixels per second**.
+
+Later we can convert to **km/h using camera calibration**.
+
+---
+
+# 4. Add Motion Utility
+
+Create a new file:
+
+```text
+event_service/motion.py
+```
+
+```python
+import math
+
+def bbox_center(bbox):
+
+    x1, y1, x2, y2 = bbox
+
+    cx = (x1 + x2) / 2
+    cy = (y1 + y2) / 2
+
+    return cx, cy
+
+
+def pixel_distance(b1, b2):
+
+    x1, y1 = bbox_center(b1)
+    x2, y2 = bbox_center(b2)
+
+    return math.sqrt((x2-x1)**2 + (y2-y1)**2)
+```
+
+---
+
+# 5. Speed Calculation
+
+Add:
+
+```python
+def estimate_speed(history, fps=30):
+
+    if len(history) < 2:
+        return 0
+
+    first = history[-1]
+    last = history[0]
+
+    dist = pixel_distance(first["bbox"], last["bbox"])
+
+    frame_diff = last["frame"] - first["frame"]
+
+    time = frame_diff / fps
+
+    if time == 0:
+        return 0
+
+    return dist / time
+```
+
+This returns **pixel speed**.
+
+---
+
+# 6. Detect Stopped Vehicles
+
+Add a new rule in `event_rules.py`.
+
+```python
+from motion import estimate_speed
+
+def detect_stopped_vehicle(history):
+
+    speed = estimate_speed(history)
+
+    if speed < 2:
+
+        return {
+            "event_type": "vehicle_stopped",
+            "speed": speed
+        }
+
+    return None
+```
+
+This detects vehicles that barely move.
+
+---
+
+# 7. Integrate into Event Engine
+
+Inside `main.py` after updating track history:
+
+```python
+history = store.get_track_history(camera_id, obj["track_id"])
+
+event = detect_stopped_vehicle(history)
+
+if event:
+    print("EVENT:", event)
+```
+
+---
+
+# 8. What the System Can Now Detect
+
+Example output:
+
+```text
+EVENT:
+{
+ "event_type": "vehicle_stopped",
+ "speed": 0.4
+}
+```
+
+This is the basis for:
+
+```text
+illegal parking
+accident detection
+traffic congestion
+```
+
+---
+
+# 9. Architecture Concept Introduced
+
+You just added:
+
+**Motion Analytics**
+
+Which is based on:
+
+```text
+object trajectory analysis
+```
+
+This technique is used in:
+
+* autonomous driving perception
+* sports analytics
+* surveillance systems
+* robotics
+
+---
+
+# 10. Your AI Platform Now
+
+Your system now includes **behavioral intelligence**:
+
+```text
+Sensors
+  Cameras
+
+Perception
+  Detection
+  Tracking
+
+Streaming
+  Redis
+
+Stateful Processing
+  Track History
+
+Behavior Analytics
+  Motion Estimation
+
+Observability
+  Dashboard
+
+Storage
+  PostgreSQL
+  Neo4j
+```
+
+This is already **very close to real smart-city AI architecture**.
+
+---
+
+# Next Big Upgrade (Very Interesting)
+
+The next improvement will dramatically increase system intelligence:
+
+**Vehicle Re-Identification Across Cameras**
+
+This allows the system to detect:
+
+```text
+vehicle traveled from camera A → camera B
+```
+
+which introduces **cross-camera intelligence**, one of the hardest problems in computer vision systems.
+
+Before we implement it, I want to ask one important architecture question:
+
+Do you want this platform to eventually support **live RTSP cameras**, or remain **video-file based for now**?

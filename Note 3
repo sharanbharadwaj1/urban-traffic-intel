@@ -1,0 +1,67 @@
+Real Distributed Architecture
+
+Real systems look like this:
+
+Camera A ── Vision Service A
+Camera B ── Vision Service B
+Camera C ── Vision Service C
+                │
+                ▼
+            Redis Stream
+          vision_detections
+                │
+                ▼
+         Tracking Service
+                │
+                ▼
+         Event Detection
+
+Each vision worker is independent.
+
+This allows:
+
+horizontal scaling
+8. Architecture Concept You Just Implemented
+
+Add this to your notes.
+
+Concept:
+
+Horizontal Scaling by Partitioned Sources
+
+Meaning:
+
+each service instance processes one camera stream
+
+Instead of one service handling everything.
+
+This pattern is used in:
+
+video analytics
+
+IoT systems
+
+autonomous vehicle fleets
+
+sensor networks
+
+9. Important Insight
+
+Your system is already following a real AI platform layering model:
+
+Sensors
+  Cameras
+
+Perception
+  Detection + Tracking
+
+Streaming
+  Redis
+
+Intelligence
+  Event detection
+
+Knowledge
+  Graph DB (later)
+
+Very few ML engineers think in these layers.

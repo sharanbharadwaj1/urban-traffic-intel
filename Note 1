@@ -1,0 +1,254 @@
+Perfect. **27 seconds is actually ideal** for development on an 8 GB laptop. Short clips make debugging pipelines much easier.
+
+Now let’s **plug the video into the system properly** and verify the **Vision → Redis → Tracking pipeline** step by step.
+
+---
+
+# 1. Put the Video in the Correct Location
+
+Project structure should look like:
+
+```
+traffic-ai-platform/
+
+data/
+   traffic.mp4
+
+vision_service/
+tracking_service/
+infra/
+```
+
+Your config should reference:
+
+```python
+VIDEO_SOURCE = "../data/traffic.mp4"
+```
+
+The relative path matters because `main.py` runs from inside `vision_service`.
+
+---
+
+# 2. Run Vision Service
+
+Navigate to:
+
+```
+vision_service
+```
+
+Run:
+
+```bash
+python main.py
+```
+
+Expected output:
+
+```
+Published frame 5
+Published frame 10
+Published frame 15
+```
+
+If Redis is running correctly, detections are being pushed to the stream:
+
+```
+vision_detections
+```
+
+---
+
+# 3. Verify Redis Stream (Very Important Debug Skill)
+
+Open Redis CLI:
+
+```powershell
+docker exec -it <redis_container> redis-cli
+```
+
+Now run:
+
+```
+XRANGE vision_detections - +
+```
+
+You should see messages like:
+
+```
+{
+ "frame_id": 10,
+ "detections": [...]
+}
+```
+
+This confirms:
+
+```
+Video → Detection → Redis
+```
+
+pipeline is working.
+
+---
+
+# 4. Run Tracking Service
+
+Open another terminal:
+
+```
+tracking_service
+```
+
+Run:
+
+```bash
+python main.py
+```
+
+Now tracking service will:
+
+```
+consume → vision_detections
+produce → tracked_objects
+```
+
+---
+
+# 5. Verify Tracking Output
+
+Back in Redis CLI:
+
+```
+XRANGE tracked_objects - +
+```
+
+Expected result:
+
+```
+{
+ "frame_id": 10,
+ "tracks": [
+   {"track_id": 3},
+   {"track_id": 7}
+ ]
+}
+```
+
+Now the system knows **which vehicle is which across frames**.
+
+---
+
+# 6. What You Have Built So Far (Architecturally)
+
+Your system now looks like this:
+
+```
+Video
+  │
+  ▼
+Vision Service
+(Object Detection)
+  │
+  ▼
+Redis Stream
+vision_detections
+  │
+  ▼
+Tracking Service
+(Object Identity)
+  │
+  ▼
+Redis Stream
+tracked_objects
+```
+
+This is already a **real-time perception pipeline**.
+
+Many production AI systems begin exactly like this.
+
+---
+
+# 7. One Small Optimization for Your Laptop
+
+Because you only have **8 GB RAM**, set:
+
+```python
+FRAME_SKIP = 5
+```
+
+or even:
+
+```python
+FRAME_SKIP = 8
+```
+
+This means:
+
+```
+process 1 frame every 8 frames
+```
+
+For a 27 s clip it’s more than enough.
+
+---
+
+# 8. Add This to Your Architecture Notes
+
+Example entry:
+
+```
+Component: Tracking Service
+
+Purpose:
+Maintain object identity across frames.
+
+Concept:
+Stateful stream processing.
+
+Input Stream:
+vision_detections
+
+Output Stream:
+tracked_objects
+
+Reason:
+Detection alone cannot determine whether objects across frames
+belong to the same entity. Tracking assigns persistent IDs.
+```
+
+This is **exactly how architecture documentation is written**.
+
+---
+
+# 9. Next Phase (Where Intelligence Starts)
+
+Next we build the **Event Detection Engine**.
+
+This service analyzes **track history** to detect:
+
+```
+traffic congestion
+illegal parking
+vehicle collision
+```
+
+This introduces a **very powerful architectural concept**:
+
+```
+Temporal Event Detection
+```
+
+Instead of analyzing **one frame**, we analyze **patterns across time**.
+
+This is where the system becomes **a true AI analytics platform**.
+
+---
+
+Before we move forward, tell me:
+
+1️⃣ Did the **Vision Service run successfully**?
+2️⃣ When you run `XRANGE vision_detections - +`, do you see messages?
+3️⃣ Did the **Tracking Service start consuming the stream**?
+
+Once these three confirm, we’ll build the **Event Intelligence Engine**, which is the most interesting part of this system.

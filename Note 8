@@ -1,0 +1,279 @@
+Good. Before adding more intelligence, we’ll build a **simple real-time debugging dashboard**. In real AI platforms engineers always create **observability tools** to inspect streams and state. Otherwise debugging distributed pipelines becomes very hard.
+
+We’ll build a **lightweight dashboard** using **Streamlit** that shows:
+
+* latest detection events
+* latest tracked objects
+* active track history in Redis
+* detected traffic events
+
+This becomes your **system observability layer**.
+
+---
+
+# 1. Why Dashboards Matter in AI Systems
+
+Production ML systems always include **observability**:
+
+```text
+metrics
+logs
+stream inspection
+state inspection
+```
+
+Without this you cannot debug:
+
+* dropped frames
+* missing events
+* tracker failures
+* congestion mis-detection
+
+Your dashboard will act as a **stream inspector**.
+
+---
+
+# 2. Install Dashboard Dependency
+
+Run:
+
+```bash
+pip install streamlit
+```
+
+---
+
+# 3. Create Dashboard Folder
+
+Add a new folder:
+
+```text
+traffic-ai-platform/
+
+dashboard/
+   app.py
+```
+
+---
+
+# 4. Dashboard Architecture
+
+The dashboard reads directly from Redis.
+
+```text
+Redis Streams
+     │
+     ├── vision_detections
+     ├── tracked_objects
+     └── track:cam_id:track_id
+             │
+             ▼
+        Dashboard UI
+```
+
+So the dashboard is **read-only observability**.
+
+---
+
+# 5. Basic Dashboard Code
+
+`dashboard/app.py`
+
+```python
+import streamlit as st
+import redis
+import json
+
+r = redis.Redis(host="localhost", port=6379)
+
+st.title("Urban Traffic Intelligence Dashboard")
+
+st.header("Latest Tracked Objects")
+
+messages = r.xrevrange("tracked_objects", count=5)
+
+for msg_id, msg in messages:
+
+    payload = json.loads(msg[b'payload'])
+
+    st.json(payload)
+```
+
+This shows the **latest tracking events**.
+
+---
+
+# 6. Add Detection Stream View
+
+Add below:
+
+```python
+st.header("Latest Detections")
+
+messages = r.xrevrange("vision_detections", count=5)
+
+for msg_id, msg in messages:
+
+    payload = json.loads(msg[b'payload'])
+
+    st.json(payload)
+```
+
+Now you can see **what the vision service produces**.
+
+---
+
+# 7. Show Track History
+
+Add another section.
+
+```python
+st.header("Track History")
+
+keys = r.keys("track:*")
+
+for key in keys[:5]:
+
+    history = r.lrange(key, 0, -1)
+
+    st.write(key.decode())
+
+    for entry in history:
+
+        st.json(json.loads(entry))
+```
+
+This shows **recent track states stored in Redis**.
+
+---
+
+# 8. Run the Dashboard
+
+From the dashboard folder run:
+
+```bash
+streamlit run app.py
+```
+
+Open browser:
+
+```text
+http://localhost:8501
+```
+
+Now you can watch the system **in real time**.
+
+---
+
+# 9. What You Can Observe
+
+When the pipeline runs you will see:
+
+### Detection events
+
+```text
+frame 660
+27 cars detected
+```
+
+### Tracking events
+
+```text
+track_id 606
+track_id 577
+track_id 552
+```
+
+### Track history
+
+```text
+track:cam_1:606
+frame 650
+frame 655
+frame 660
+```
+
+This lets you debug:
+
+* tracking failures
+* missing detections
+* congestion misfires
+
+---
+
+# 10. Architecture Concept You Just Added
+
+This layer is called:
+
+**System Observability**
+
+Components:
+
+```text
+metrics
+logs
+event inspection
+state inspection
+```
+
+In large ML systems this is implemented using:
+
+* Prometheus
+* Grafana
+* Kibana
+* custom dashboards
+
+Your Streamlit app is a **lightweight observability tool**.
+
+---
+
+# 11. Your Architecture Now
+
+Your platform already contains many real production layers:
+
+```text
+Sensors
+  Cameras
+
+Perception
+  Detection
+  Tracking
+
+Streaming
+  Redis Streams
+
+State Store
+  Redis Track History
+
+Event Intelligence
+  Event Engine
+
+Observability
+  Stream Dashboard
+
+Storage
+  PostgreSQL
+  Neo4j
+```
+
+This is becoming a **full AI analytics platform**.
+
+---
+
+# 12. Next Intelligence Features
+
+Now that the system is observable, we can safely add **advanced event detection**.
+
+Next events we should implement:
+
+1. **Stopped vehicle detection**
+2. **Vehicle speed estimation**
+3. **Illegal parking detection**
+
+These require computing **movement from bounding box history**.
+
+---
+
+Before implementing those, one small architectural question:
+
+Do you want the event engine to detect **vehicle speed from pixel motion**, or do you want to incorporate **camera calibration (real-world distance)** so speed estimates become realistic?

@@ -1,0 +1,305 @@
+The trick is something used in **real smart-city and surveillance analytics systems**:
+
+**Spatio-Temporal Event Processing**
+
+It means the system reasons about **space (camera location)** and **time (vehicle movement across frames)** together.
+
+This is what allows systems to answer questions like:
+
+* Did a vehicle move from **Camera A → Camera B**?
+* Did congestion propagate across **multiple intersections**?
+* Did the same vehicle appear in **two cameras within 30 seconds**?
+
+To support this, we introduce a **Spatio-Temporal Event Layer**.
+
+---
+
+# 1. Current System (Per-Camera Intelligence)
+
+Right now your system reasons **inside a single camera**.
+
+```text
+Camera_1
+   │
+   ▼
+Detection → Tracking → Events
+```
+
+This allows events like:
+
+```
+illegal parking
+congestion
+sudden stop
+```
+
+But the system does **not understand city-level movement**.
+
+---
+
+# 2. Multi-Camera Intelligence Architecture
+
+To reason across cameras we introduce a **shared temporal buffer**.
+
+```
+tracked_objects stream
+        │
+        ▼
+Spatio-Temporal Processor
+        │
+        ├── camera state store
+        ├── track history
+        └── location graph
+```
+
+The processor keeps a **short memory window of tracks**.
+
+Example:
+
+```
+track_id 606
+cam_1 frame 600
+cam_1 frame 610
+cam_1 frame 620
+```
+
+If a new track appears:
+
+```
+track_id 812
+cam_2 frame 640
+```
+
+the system can check:
+
+```
+could this be the same vehicle?
+```
+
+This is called **vehicle re-identification**.
+
+We won’t implement full re-ID yet, but we **prepare the architecture** for it.
+
+---
+
+# 3. Add Camera Metadata Layer
+
+Each camera should have **spatial context**.
+
+Example record:
+
+```
+camera_id: cam_1
+location: intersection_A
+lat: 12.9716
+lon: 77.5946
+```
+
+This will later be stored in **PostgreSQL**.
+
+Example table:
+
+```
+cameras
+--------
+camera_id
+location_name
+latitude
+longitude
+road_segment
+```
+
+Now the system knows **where events happen**.
+
+---
+
+# 4. Track History Buffer
+
+The event engine will maintain a **time window of recent tracks**.
+
+Example structure:
+
+```
+track_memory
+
+cam_1:
+    track_606:
+        frame_600
+        frame_610
+        frame_620
+
+cam_2:
+    track_812:
+        frame_640
+```
+
+We typically store:
+
+```
+last 5–10 seconds of tracks
+```
+
+This is enough for most traffic events.
+
+---
+
+# 5. Example Multi-Camera Event
+
+Imagine two cameras:
+
+```
+cam_1 → highway entry
+cam_2 → highway exit
+```
+
+Events:
+
+```
+cam_1 track_606 at 10:00:02
+cam_2 track_901 at 10:00:20
+```
+
+The system might infer:
+
+```
+vehicle traveled between cameras
+```
+
+This requires combining:
+
+```
+time
+location
+object features
+```
+
+That is **spatio-temporal reasoning**.
+
+---
+
+# 6. Architecture Layer We Are Adding
+
+Your architecture is evolving.
+
+Current:
+
+```
+Perception Layer
+Detection + Tracking
+```
+
+Next:
+
+```
+Spatio-Temporal Intelligence Layer
+```
+
+Full system:
+
+```
+Sensors
+  Cameras
+
+Perception
+  Detection
+  Tracking
+
+Streaming
+  Redis
+
+Spatio-Temporal Intelligence
+  Event Engine
+
+Knowledge
+  Graph DB (later)
+
+Analytics
+  Agents
+```
+
+This is a **very realistic AI system architecture**.
+
+---
+
+# 7. Example Event Produced
+
+Later the event engine will output something like:
+
+```json
+{
+ "event_type": "traffic_congestion",
+ "camera_id": "cam_1",
+ "vehicle_count": 42,
+ "duration_seconds": 18
+}
+```
+
+Or multi-camera:
+
+```json
+{
+ "event_type": "vehicle_transition",
+ "from_camera": "cam_1",
+ "to_camera": "cam_2",
+ "time_delta": 18
+}
+```
+
+These become **traffic intelligence events**.
+
+---
+
+# 8. Important Concept for Your Notes
+
+You just introduced:
+
+**Spatio-Temporal Data Processing**
+
+Definition:
+
+```
+Analyzing events across both space (camera location)
+and time (temporal sequence).
+```
+
+This concept appears in:
+
+* autonomous driving systems
+* surveillance analytics
+* sports tracking
+* logistics tracking
+* drone monitoring
+
+---
+
+# 9. What We Build Next
+
+Now we implement the **Event Detection Service**.
+
+This service will detect:
+
+```
+congestion
+illegal parking
+sudden stop anomalies
+```
+
+using **track history over time**.
+
+This introduces another important concept:
+
+**Sliding Window Event Processing**
+
+which is widely used in streaming systems like:
+
+* Kafka Streams
+* Apache Flink
+* Spark Streaming
+
+---
+
+Before we implement it, I want to ask one architecture question that affects the design:
+
+Should the event engine store **track history in memory**, or in **Redis**?
+
+Both are used in production systems, but they have **different trade-offs**.

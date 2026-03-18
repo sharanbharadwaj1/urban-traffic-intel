@@ -8,10 +8,10 @@ services:
   postgres:
     image: postgres:14
     environment:
-      POSTGRES_USER: traffic
-      POSTGRES_PASSWORD: traffic
-      POSTGRES_DB: trafficdb
-      TZ: Asia/Kolkata
+      POSTGRES_USER: traffic1
+      POSTGRES_PASSWORD: traffic1
+      POSTGRES_DB: trafficdb1
+    command: postgres -c timezone=UTC
     ports:
       - "5432:5432"
 

@@ -27,6 +27,7 @@ for msg_id, message in reader.read():
     event = {
         "camera_id": message["camera_id"],
         "frame_id": message["frame_id"],
+        "frame": message["frame"],
         "objects": objects
     }
 

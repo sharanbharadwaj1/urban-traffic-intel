@@ -1,0 +1,242 @@
+Good — this upgrade will make your UI behave like a **real monitoring console** instead of replaying the video independently.
+
+Right now your UI does this (incorrect architecture):
+
+```text
+video file → UI
+tracking data → Redis
+```
+
+So frames and boxes are **not synchronized**.
+
+We will change the architecture so **frames themselves flow through the pipeline**.
+
+---
+
+# 1. Correct Real-Time Architecture
+
+Instead of the UI loading the video, the **vision service publishes frames**.
+
+```text
+Video
+  │
+  ▼
+Vision Service
+  ├─ detections
+  └─ frame stream
+        │
+        ▼
+Redis
+        │
+        ▼
+Tracking Service
+        │
+        ▼
+UI
+```
+
+Now UI displays **the same frames used by detection**.
+
+This guarantees **perfect overlay**.
+
+---
+
+# 2. Publish Frames From Vision Service
+
+Update `vision_service/main.py`.
+
+Import:
+
+```python
+import base64
+import cv2
+```
+
+Before publishing the message, encode the frame.
+
+```python
+_, buffer = cv2.imencode(".jpg", frame)
+
+frame_base64 = base64.b64encode(buffer).decode("utf-8")
+```
+
+Now modify the message.
+
+```python
+message = {
+    "camera_id": camera_id,
+    "frame_id": frame_id,
+    "timestamp": time.time(),
+    "frame": frame_base64,
+    "detections": detections
+}
+```
+
+So every event now includes the **actual frame**.
+
+---
+
+# 3. Tracking Service Passes Frame Forward
+
+Update `tracking_service/main.py`.
+
+Add frame to the output event.
+
+```python
+event = {
+    "camera_id": message["camera_id"],
+    "frame_id": message["frame_id"],
+    "frame": message["frame"],
+    "objects": objects
+}
+```
+
+Now the **tracked_objects stream contains the frame**.
+
+---
+
+# 4. Update UI To Read Frame From Redis
+
+Modify `ui/app.py`.
+
+Add:
+
+```python
+import base64
+import numpy as np
+```
+
+Decode the frame.
+
+```python
+frame_bytes = base64.b64decode(message["frame"])
+
+frame_array = np.frombuffer(frame_bytes, dtype=np.uint8)
+
+frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
+```
+
+Now draw tracks.
+
+```python
+frame = draw_tracks(frame, message["objects"])
+```
+
+Convert for Streamlit.
+
+```python
+frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+frame_window.image(frame)
+```
+
+---
+
+# 5. Remove Video Reader From UI
+
+Delete this line in UI:
+
+```python
+video = cv2.VideoCapture("../data/traffic.mp4")
+```
+
+UI should **never load video directly anymore**.
+
+---
+
+# 6. Result
+
+Now the UI pipeline becomes:
+
+```text
+Vision Service
+    │
+    ▼
+Redis
+    │
+    ▼
+Tracking Service
+    │
+    ▼
+UI
+```
+
+And frames are:
+
+```text
+captured → detected → tracked → displayed
+```
+
+in **the exact same frame**.
+
+---
+
+# 7. What You Will See Now
+
+The UI will show:
+
+* vehicle bounding boxes
+* track IDs
+* vehicle count
+* perfectly synchronized frames
+
+No lag or mismatch.
+
+---
+
+# 8. Architectural Concept
+
+You just implemented:
+
+**Frame Event Streaming**
+
+Instead of sending only metadata, the pipeline streams **video frames as events**.
+
+This is how many **real-time analytics systems** work.
+
+Examples include systems built on:
+
+* Kafka + OpenCV pipelines
+* edge AI video analytics platforms
+* smart city monitoring systems
+
+---
+
+# 9. Your Platform Is Now a Real Video AI System
+
+Current architecture:
+
+```text
+Camera / Video
+     │
+     ▼
+Vision Service
+     │
+     ▼
+Redis Event Stream
+     │
+     ▼
+Tracking Service
+     │
+     ▼
+Event Engine
+     │
+     ▼
+UI Visualization
+```
+
+This is already a **production-grade architecture pattern**.
+
+---
+
+# Next Step (Very Cool)
+
+Once this UI works, we can upgrade it into a **real traffic intelligence console** with:
+
+* vehicle speed display
+* number plate overlay
+* congestion heatmap
+* vehicle trajectory trails
+* camera switching
+
+which will make your project look like a **professional surveillance analytics platform**.

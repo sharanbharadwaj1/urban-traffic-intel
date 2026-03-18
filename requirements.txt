@@ -10,3 +10,5 @@ neo4j
 psycopg2-binary
 supervision
 streamlit
+easyocr
+numpy

@@ -1,0 +1,292 @@
+Great. Now we add the **Graph Intelligence Layer** using Neo4j.
+This layer lets your system understand **relationships over time**, which is very powerful for traffic analytics.
+
+Instead of only storing events, we model **vehicles, cameras, and events as a graph**.
+
+---
+
+# 1. Why a Graph Database Here
+
+Your system generates relationships like:
+
+```text
+vehicle → seen_at → camera
+vehicle → involved_in → event
+camera → connected_to → camera
+```
+
+Relational databases struggle with these kinds of **relationship queries**, while graph databases handle them efficiently.
+
+Example questions the graph can answer:
+
+* Which vehicles passed through **cam_1 → cam_2 → cam_3**?
+* Which plates frequently appear in **congestion events**?
+* Which cameras observe the **same vehicles repeatedly**?
+
+---
+
+# 2. Graph Model (Entities)
+
+We define three main node types.
+
+### Vehicle
+
+```text
+Vehicle
+-------
+plate
+```
+
+### Camera
+
+```text
+Camera
+-------
+camera_id
+```
+
+### Event
+
+```text
+Event
+-------
+event_type
+timestamp
+```
+
+---
+
+# 3. Graph Relationships
+
+Relationships connect the nodes.
+
+```text
+(Vehicle)-[:SEEN_AT]->(Camera)
+
+(Vehicle)-[:INVOLVED_IN]->(Event)
+
+(Camera)-[:CONNECTED_TO]->(Camera)
+```
+
+Example graph:
+
+```text
+Vehicle(KA01AB1234)
+        │
+        ├── SEEN_AT → Camera(cam_1)
+        │
+        └── INVOLVED_IN → Event(congestion)
+```
+
+---
+
+# 4. Install Neo4j Python Driver
+
+Run:
+
+```bash
+pip install neo4j
+```
+
+Neo4j driver allows Python services to write to the graph.
+
+---
+
+# 5. Create Graph Service
+
+Create a new service:
+
+```text
+graph_service/
+
+config.py
+graph_writer.py
+main.py
+```
+
+---
+
+# 6. Graph Config
+
+`graph_service/config.py`
+
+```python
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "password"
+
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+
+INPUT_STREAM = "tracked_objects"
+```
+
+---
+
+# 7. Graph Writer
+
+`graph_writer.py`
+
+```python
+from neo4j import GraphDatabase
+
+
+class GraphWriter:
+
+    def __init__(self, uri, user, password):
+
+        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+
+    def write_vehicle_camera(self, plate, camera_id):
+
+        query = """
+        MERGE (v:Vehicle {plate:$plate})
+        MERGE (c:Camera {id:$camera})
+        MERGE (v)-[:SEEN_AT]->(c)
+        """
+
+        with self.driver.session() as session:
+            session.run(query, plate=plate, camera=camera_id)
+```
+
+`MERGE` ensures nodes are created only once.
+
+---
+
+# 8. Graph Service Main
+
+`main.py`
+
+```python
+from stream_reader import StreamReader
+from graph_writer import GraphWriter
+import config
+
+
+reader = StreamReader(
+    config.REDIS_HOST,
+    config.REDIS_PORT,
+    config.INPUT_STREAM
+)
+
+graph = GraphWriter(
+    config.NEO4J_URI,
+    config.NEO4J_USER,
+    config.NEO4J_PASSWORD
+)
+
+for message in reader.read():
+
+    camera_id = message["camera_id"]
+
+    for obj in message["objects"]:
+
+        track_id = obj["track_id"]
+
+        plate = None  # later retrieved from Redis plate cache
+
+        if plate:
+
+            graph.write_vehicle_camera(plate, camera_id)
+```
+
+This writes vehicle movements into the graph.
+
+---
+
+# 9. What the Graph Will Look Like
+
+Example nodes:
+
+```text
+(:Vehicle {plate:"KA01AB1234"})
+(:Camera {id:"cam_1"})
+(:Camera {id:"cam_2"})
+```
+
+Relationships:
+
+```text
+(Vehicle)-[:SEEN_AT]->(Camera)
+```
+
+---
+
+# 10. Example Graph Query
+
+Inside Neo4j browser you can run:
+
+```cypher
+MATCH (v:Vehicle)-[:SEEN_AT]->(c:Camera)
+RETURN v,c
+```
+
+This shows which vehicles were seen at which cameras.
+
+---
+
+# 11. Advanced Query Example
+
+Find vehicles seen by **multiple cameras**.
+
+```cypher
+MATCH (v:Vehicle)-[:SEEN_AT]->(c:Camera)
+RETURN v.plate, collect(c.id)
+```
+
+This reveals **vehicle movement patterns**.
+
+---
+
+# 12. Updated System Architecture
+
+Your system now has a **knowledge layer**.
+
+```text
+Sensors
+  Cameras
+
+Perception
+  Detection
+  Tracking
+  Plate Recognition
+
+Streaming
+  Redis Streams
+
+State Store
+  Track History
+  Plate Cache
+
+Behavior Intelligence
+  Event Engine
+
+Knowledge Layer
+  Neo4j Graph
+
+Observability
+  Dashboard
+```
+
+This is now a **complete AI traffic intelligence platform**.
+
+---
+
+# 13. Why This Is Powerful
+
+With the graph layer you can build:
+
+* vehicle journey reconstruction
+* traffic flow analysis
+* anomaly detection across cameras
+* vehicle behavior patterns
+
+These are exactly the types of analytics used in **smart city systems**.
+
+---
+
+If you'd like, the **next step would be the most interesting upgrade**: connecting an **LLM agent layer** so you can ask questions like:
+
+> “Which vehicles passed through cam_1 and were involved in congestion events?”
+
+and the system will query the graph and answer automatically.

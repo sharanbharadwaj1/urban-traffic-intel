@@ -1,0 +1,295 @@
+That’s the right approach. Architect for **RTSP compatibility**, but run with **video files** during development. This is exactly how many production systems are built initially.
+
+The key idea is to **abstract the video source** so the Vision Service does not care whether frames come from:
+
+```text
+RTSP stream
+video file
+webcam
+```
+
+This is done by introducing a **Frame Source Layer**.
+
+---
+
+# 1. Updated Vision Service Architecture
+
+Right now the pipeline looks like:
+
+```text
+Video File
+   │
+   ▼
+Frame Reader
+   │
+   ▼
+Detection Engine
+```
+
+We change it to:
+
+```text
+Frame Source
+   │
+   ├── Video File
+   ├── RTSP Camera
+   └── Webcam
+         │
+         ▼
+Frame Reader
+         │
+         ▼
+Detection Engine
+```
+
+Now the rest of the pipeline **doesn't change**.
+
+---
+
+# 2. Create a Frame Source Module
+
+Create:
+
+```text
+vision_service/frame_source.py
+```
+
+Code:
+
+```python
+import cv2
+
+
+class FrameSource:
+
+    def __init__(self, source):
+
+        self.source = source
+        self.cap = cv2.VideoCapture(source)
+
+        if not self.cap.isOpened():
+            raise RuntimeError(f"Cannot open video source: {source}")
+
+    def read(self):
+
+        ret, frame = self.cap.read()
+
+        if not ret:
+            return None
+
+        return frame
+```
+
+This works for:
+
+```text
+video files
+RTSP streams
+webcams
+```
+
+because OpenCV supports all three.
+
+---
+
+# 3. Update Vision Service Config
+
+Update `vision_service/config.py`.
+
+Example:
+
+```python
+VIDEO_SOURCE = "../data/traffic.mp4"
+```
+
+Later you can switch to:
+
+```python
+VIDEO_SOURCE = "rtsp://192.168.1.20:554/live"
+```
+
+No other code changes needed.
+
+---
+
+# 4. Update Vision Service Main
+
+Modify `main.py`.
+
+Example:
+
+```python
+from frame_source import FrameSource
+from detector import Detector
+from publisher import Publisher
+import config
+import time
+import sys
+
+camera_id = sys.argv[1]
+
+source = FrameSource(config.VIDEO_SOURCE)
+
+detector = Detector(config.MODEL_NAME)
+
+publisher = Publisher(
+    config.REDIS_HOST,
+    config.REDIS_PORT,
+    config.STREAM_NAME
+)
+
+frame_id = 0
+
+while True:
+
+    frame = source.read()
+
+    if frame is None:
+        break
+
+    frame_id += 1
+
+    detections = detector.detect(frame)
+
+    message = {
+        "camera_id": camera_id,
+        "frame_id": frame_id,
+        "timestamp": time.time(),
+        "detections": detections
+    }
+
+    publisher.publish(message)
+
+    print(f"Published frame {frame_id}")
+```
+
+---
+
+# 5. Running With Video (Current Setup)
+
+Run like before:
+
+```bash
+python main.py cam_1
+```
+
+And in config:
+
+```python
+VIDEO_SOURCE = "../data/traffic.mp4"
+```
+
+---
+
+# 6. Running With RTSP Later
+
+When you have access to cameras, just change config:
+
+```python
+VIDEO_SOURCE = "rtsp://username:password@camera-ip:554/stream"
+```
+
+Then run:
+
+```bash
+python main.py cam_2
+```
+
+That camera becomes another **vision worker**.
+
+---
+
+# 7. Multi-Camera RTSP Architecture
+
+In production you would run:
+
+```text
+Vision Worker 1 → Camera A
+Vision Worker 2 → Camera B
+Vision Worker 3 → Camera C
+```
+
+All publishing to:
+
+```text
+vision_detections stream
+```
+
+Tracking and event services consume the **combined stream**.
+
+---
+
+# 8. Architecture Concept You Just Introduced
+
+This pattern is called:
+
+**Source Abstraction Layer**
+
+Meaning:
+
+```text
+separate input acquisition from processing logic
+```
+
+It allows the system to support:
+
+* recorded video
+* live cameras
+* future sensors
+
+without changing the **AI pipeline**.
+
+---
+
+# 9. Your Final System Architecture (So Far)
+
+You now have a very clean AI platform architecture:
+
+```text
+Sensors
+  Video / RTSP
+
+Perception
+  Detection
+  Tracking
+
+Streaming
+  Redis Streams
+
+State Store
+  Redis Track History
+
+Behavior Intelligence
+  Event Detection
+
+Observability
+  Streamlit Dashboard
+
+Storage (future)
+  PostgreSQL
+  Graph DB
+```
+
+This is already close to **smart city traffic analytics architecture**.
+
+---
+
+# Next Step
+
+Now that the pipeline is stable, the next **major upgrade** (and a very interesting system design concept) is:
+
+**Camera Geometry Calibration**
+
+This allows converting:
+
+```text
+pixel speed → real world speed (km/h)
+```
+
+which makes your analytics **physically meaningful** instead of pixel-based.
+
+It introduces concepts used in:
+
+* autonomous vehicles
+* traffic enforcement systems
+* sports tracking systems.

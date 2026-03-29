@@ -1,0 +1,13 @@
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+
+INPUT_STREAM = "tracked_objects"
+
+TRACK_TTL = 30
+MAX_TRACK_HISTORY = 20
+
+POSTGRES_HOST = "localhost"
+POSTGRES_PORT = 5432
+POSTGRES_DB = "trafficdb1"
+POSTGRES_USER = "traffic1"
+POSTGRES_PASSWORD = "traffic1"

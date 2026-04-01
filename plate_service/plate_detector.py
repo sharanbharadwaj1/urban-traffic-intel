@@ -1,20 +1,28 @@
-from ocr_reader import OCRReader
+import re
+
+import config
+from anpr_client import ANPRClient
 
 
-ocr_reader = OCRReader()
+anpr_client = ANPRClient()
 
 
-def crop_vehicle(frame, bbox):
-
-    x1, y1, x2, y2 = map(int, bbox)
-
-    return frame[y1:y2, x1:x2]
-
-def detect_plate(frame, bbox):
-
-    vehicle = crop_vehicle(frame, bbox)
-
-    if vehicle.size == 0:
+def _normalize_plate(text):
+    if not text:
         return None
 
-    return ocr_reader.read_plate(vehicle)
+    cleaned = re.sub(r"[^A-Z0-9]", "", str(text).upper())
+    if len(cleaned) < config.PLATE_MIN_LENGTH or len(cleaned) > config.PLATE_MAX_LENGTH:
+        return None
+
+    letter_count = sum(char.isalpha() for char in cleaned)
+    digit_count = sum(char.isdigit() for char in cleaned)
+    if letter_count < 2 or digit_count < 2:
+        return None
+
+    return cleaned
+
+
+def detect_plate(frame, bbox):
+    plate = anpr_client.read_plate_for_bbox(frame, bbox)
+    return _normalize_plate(plate)

@@ -7,6 +7,7 @@ from event_rules import (
     detect_speeding_vehicle,
     detect_stopped_vehicle,
 )
+from motion import estimate_speed
 from publisher import Publisher
 from stream_reader import StreamReader
 from track_store import TrackStore
@@ -45,8 +46,10 @@ store = TrackStore(
     config.TRACK_TTL,
 )
 
+PLATE_ELIGIBLE_CLASS_IDS = {2, 5, 7}
 
-def publish_vehicle_event(camera_id, frame_id, obj, rule_result, frame):
+
+def publish_vehicle_event(camera_id, frame_id, obj, rule_result):
     event_type = rule_result["event_type"]
     track_id = obj["track_id"]
     plate = redis_client.get(f"plate:{track_id}")
@@ -74,28 +77,65 @@ def publish_vehicle_event(camera_id, frame_id, obj, rule_result, frame):
         event_metadata=event_metadata,
     )
 
-    event_data = {
-        "camera_id": camera_id,
-        "track_id": track_id,
-        "event_type": event_type,
-        "frame_id": frame_id,
-        "plate": plate,
-        **event_metadata,
-    }
-    event_stream_publisher.publish(event_data)
-
-    if plate is None:
-        plate_publisher.publish(
-            {
-                "camera_id": camera_id,
-                "track_id": track_id,
-                "event_type": event_type,
-                "frame": frame,
-                "bbox": obj["bbox"],
-            }
-        )
+    event_stream_publisher.publish(
+        {
+            "camera_id": camera_id,
+            "track_id": track_id,
+            "event_type": event_type,
+            "frame_id": frame_id,
+            "plate": plate,
+            **event_metadata,
+        }
+    )
 
     redis_client.set(event_key, 1, ex=5)
+
+
+def should_request_plate(obj, speed):
+    if obj["class_id"] not in PLATE_ELIGIBLE_CLASS_IDS:
+        return False
+
+    x1, y1, x2, y2 = obj["bbox"]
+    width = x2 - x1
+    height = y2 - y1
+
+    if width < config.PLATE_MIN_WIDTH or height < config.PLATE_MIN_HEIGHT:
+        return False
+
+    return True
+
+
+def motion_event_type(speed):
+    if speed < config.PLATE_MIN_SPEED:
+        return "vehicle_stopped"
+
+    return "vehicle_moving"
+
+
+def publish_plate_request(camera_id, frame_id, obj, frame, speed):
+    track_id = obj["track_id"]
+
+    if redis_client.get(f"plate:{track_id}"):
+        return
+
+    request_key = f"plate_request:{camera_id}:{track_id}"
+    if redis_client.get(request_key):
+        return
+
+    plate_publisher.publish(
+        {
+            "camera_id": camera_id,
+            "track_id": track_id,
+            "frame_id": frame_id,
+            "event_type": motion_event_type(speed),
+            "frame": frame,
+            "bbox": obj["bbox"],
+            "class_id": obj["class_id"],
+            "speed": speed,
+        }
+    )
+
+    redis_client.set(request_key, 1, ex=config.PLATE_REQUEST_TTL)
 
 
 for message in reader.read():
@@ -108,6 +148,16 @@ for message in reader.read():
 
         store.update_track(camera_id, obj, frame_id)
         history = store.get_track_history(camera_id, track_id)
+        speed = estimate_speed(history)
+
+        if should_request_plate(obj, speed):
+            publish_plate_request(
+                camera_id,
+                frame_id,
+                obj,
+                message["frame"],
+                speed,
+            )
 
         stopped_event = detect_stopped_vehicle(history)
         if stopped_event:
@@ -116,7 +166,6 @@ for message in reader.read():
                 frame_id,
                 obj,
                 stopped_event,
-                message["frame"],
             )
 
         speeding_event = detect_speeding_vehicle(history)
@@ -126,7 +175,6 @@ for message in reader.read():
                 frame_id,
                 obj,
                 speeding_event,
-                message["frame"],
             )
 
     congestion_event = detect_congestion(objects)

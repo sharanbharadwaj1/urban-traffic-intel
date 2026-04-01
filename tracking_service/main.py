@@ -22,7 +22,7 @@ for msg_id, message in reader.read():
 
     detections = message["detections"]
 
-    objects = tracker.update(detections)
+    objects = tracker.update(detections, message["frame_id"])
 
     event = {
         "camera_id": message["camera_id"],

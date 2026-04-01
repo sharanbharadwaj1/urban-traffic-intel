@@ -2,11 +2,11 @@
 __pycache__/
 *.pyc
 
-# Ignore everything inside data
 data/*
-
-# But keep the folder itself
 !data/
-
-# Keep a placeholder file
 !data/.gitkeep
+debug_plate/
+plate_service/.env
+plate_service/*.pt
+__pycache__/
+*.pyc

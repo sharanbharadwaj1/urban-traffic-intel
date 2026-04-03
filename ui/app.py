@@ -5,12 +5,13 @@ import cv2
 import numpy as np
 import streamlit as st
 
+from graph_reader import GraphReader
 from redis_reader import RedisReader
 from visualizer import draw_tracks
 
 
 st.set_page_config(
-    page_title="Traffic Intelligence Dashboard",
+    page_title="Surveillance Dashboard",
     layout="wide",
 )
 
@@ -18,6 +19,11 @@ st.set_page_config(
 @st.cache_resource
 def get_reader():
     return RedisReader()
+
+
+@st.cache_resource
+def get_graph_reader():
+    return GraphReader()
 
 
 def decode_frame(frame_base64):
@@ -61,6 +67,7 @@ def format_event(event):
 
 
 reader = get_reader()
+graph_reader = get_graph_reader()
 
 if "event_cache" not in st.session_state:
     st.session_state.event_cache = {}
@@ -165,6 +172,38 @@ if table_data:
     st.dataframe(table_data, width="stretch", hide_index=True)
 else:
     st.info("No tracked objects in the latest frame.")
+
+st.subheader("VEHICLE SIGHTINGS: ")
+
+try:
+    sightings = graph_reader.get_camera_sightings(selected_camera, limit=10)
+except Exception as exc:
+    sightings = []
+    st.warning(f"Knowledge graph unavailable: {exc}")
+
+if sightings:
+    for sighting in sightings:
+        st.caption(
+            f"Vehicle {sighting['plate']} seen at {sighting['camera_id']} "
+            f"from {sighting['first_seen_at']} to {sighting['last_seen_at']}"
+        )
+
+    st.dataframe(
+        [
+            {
+                "Plate": sighting["plate"],
+                "Camera": sighting["camera_id"],
+                "First Seen (GMT)": sighting["first_seen_at"],
+                "Last Seen (GMT)": sighting["last_seen_at"],
+                "Sightings": sighting["total_sightings"],
+            }
+            for sighting in sightings
+        ],
+        width="stretch",
+        hide_index=True,
+    )
+else:
+    st.info("No knowledge graph sightings available for this camera yet.")
 
 if auto_refresh:
     time.sleep(refresh_interval / 1000)

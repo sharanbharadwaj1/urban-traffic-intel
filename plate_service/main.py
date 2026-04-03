@@ -7,6 +7,7 @@ import config
 from db_writer import DBWriter
 from plate_cache import PlateCache
 from plate_detector import detect_plate
+from publisher import Publisher
 from stream_reader import StreamReader
 from track_buffer import TrackSnapshotBuffer
 
@@ -22,6 +23,11 @@ reader = StreamReader(
 cache = PlateCache(
     config.REDIS_HOST,
     config.REDIS_PORT,
+)
+publisher = Publisher(
+    config.REDIS_HOST,
+    config.REDIS_PORT,
+    config.OUTPUT_STREAM,
 )
 pending_reads = {}
 attempt_counts = {}
@@ -128,6 +134,15 @@ for message in reader.read():
             except Exception as exc:
                 print(f"[plate] db write failed track={track_id} error={exc}")
                 raise
+            publisher.publish({
+                "camera_id": camera_id,
+                "track_id": track_id,
+                "frame_id": frame_id,
+                "plate": plate,
+                "event_type": message.get("event_type"),
+                "speed": message.get("speed"),
+                "bbox": bbox,
+            })
             pending_reads.pop(track_id, None)
             attempt_counts.pop(track_id, None)
             next_attempt_frame.pop(track_id, None)

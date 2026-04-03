@@ -5,4 +5,4 @@ NEO4J_PASSWORD = "password"
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 
-INPUT_STREAM = "tracked_objects"
+INPUT_STREAM = "vehicle_identity"

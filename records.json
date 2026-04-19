@@ -1,0 +1,44 @@
+﻿[
+  {
+    "v.plate": "KA02MM9091",
+    "c.id": "cam_1",
+    "r.first_seen_at": "2026-04-03T03:04:09.155000000Z",
+    "r.last_seen_at": "2026-04-03T03:05:16.913000000Z",
+    "r.total_sightings": 466
+  },
+  {
+    "v.plate": "KA02MM9001",
+    "c.id": "cam_1",
+    "r.first_seen_at": "2026-04-03T03:04:14.496000000Z",
+    "r.last_seen_at": "2026-04-03T03:05:16.867000000Z",
+    "r.total_sightings": 496
+  },
+  {
+    "v.plate": "KA02MH7256",
+    "c.id": "cam_1",
+    "r.first_seen_at": "2026-04-03T03:04:11.050000000Z",
+    "r.last_seen_at": "2026-04-03T03:05:16.821000000Z",
+    "r.total_sightings": 644
+  },
+  {
+    "v.plate": "KA02MN1826",
+    "c.id": "cam_1",
+    "r.first_seen_at": "2026-04-03T03:03:19.140000000Z",
+    "r.last_seen_at": "2026-04-03T03:05:13.874000000Z",
+    "r.total_sightings": 801
+  },
+  {
+    "v.plate": "KA02BA1829",
+    "c.id": "cam_1",
+    "r.first_seen_at": "2026-04-03T03:03:25.592000000Z",
+    "r.last_seen_at": "2026-04-03T03:05:09.009000000Z",
+    "r.total_sightings": 677
+  },
+  {
+    "v.plate": "KA02K1929",
+    "c.id": "cam_1",
+    "r.first_seen_at": "2026-04-03T03:03:43.692000000Z",
+    "r.last_seen_at": "2026-04-03T03:04:59.085000000Z",
+    "r.total_sightings": 72
+  }
+]

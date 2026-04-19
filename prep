@@ -1,0 +1,74 @@
+To scale this into a multi-camera system, I would keep the current microservice pipeline but make identity management cross-camera instead of camera-local.
+
+Core idea
+Right now the system works well for single-camera surveillance:
+
+detect
+track
+event detection
+plate recognition
+graph storage
+For multi-camera scaling, I would extend it in 3 layers:
+
+1. Camera-wise horizontal scaling
+Run one ingestion/tracking pipeline per camera or camera shard.
+That means:
+
+each camera publishes its own detection stream
+tracking remains local to that camera
+services can scale independently using workers and stream partitions
+This is the easiest first scale step.
+
+2. Cross-camera identity layer
+Track IDs are only local to one camera, so for multi-camera systems I would introduce a global identity layer using:
+
+plate number when available
+time proximity
+camera topology
+vehicle appearance embeddings if needed
+That gives:
+
+local track ID
+global vehicle identity
+So the same vehicle seen in cam_1 and cam_5 can be linked even though track IDs differ.
+
+3. Knowledge graph as the unifying layer
+Neo4j becomes more valuable in multi-camera scale.
+I would store:
+
+Vehicle
+Camera
+Sighting
+optionally Transition between cameras
+Then we can answer:
+
+where was this vehicle seen?
+in what sequence?
+how often does it reappear?
+what is the likely path across cameras?
+What else I would change for scale
+
+move Redis streams toward per-camera or partitioned streams
+add worker scaling and consumer groups per service
+separate hot path from heavy analytics
+use object storage for frames instead of passing too much image data inline if throughput increases a lot
+add retry queues and dead-letter handling
+use UTC/GMT consistently for all timestamps
+add monitoring for lag, dropped frames, API rate limits, and service health
+Main challenge in multi-camera
+The hardest problem is not just detection.
+It is cross-camera re-identification:
+
+same vehicle
+different angle
+different lighting
+different camera
+possible missing plate
+So in production I would combine:
+
+ANPR
+temporal constraints
+camera location graph
+optional appearance-based vehicle re-ID
+Short interview version
+To scale it to multi-camera, I would keep tracking local to each camera, introduce a global vehicle identity layer across cameras using ANPR plus temporal and appearance cues, partition streams and workers by camera, and use Neo4j to model vehicle movement and sightings across the camera network.

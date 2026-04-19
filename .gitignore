@@ -10,3 +10,7 @@ plate_service/.env
 plate_service/*.pt
 __pycache__/
 *.pyc
+backend/.env
+backend/data/
+backend/sdc/
+backend/*.pt

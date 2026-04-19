@@ -38,6 +38,7 @@ Redis streams used in the current flow:
 - [models](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/models): database schema
 - [infra](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/infra): Redis, PostgreSQL, and Neo4j containers
 - [runner](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/runner): local pipeline bootstrap
+- [backend](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/backend): production-ready FastAPI backend with async video jobs, DB persistence, and Docker packaging
 - [docs](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs): project and theory documentation
 
 ## Infrastructure
@@ -141,6 +142,7 @@ LIMIT 50;
 
 - professional system documentation: [docs/PROJECT_DOCUMENTATION.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/PROJECT_DOCUMENTATION.md)
 - theory and interview guide: [docs/STUDENT_THEORETICAL_NOTES.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/STUDENT_THEORETICAL_NOTES.md)
+- production backend architecture: [docs/PRODUCTION_BACKEND_ARCHITECTURE.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/PRODUCTION_BACKEND_ARCHITECTURE.md)
 
 ## Future Scope
 

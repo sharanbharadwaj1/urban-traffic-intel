@@ -1,0 +1,89 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: traffic-video-analytics-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - postgres
+      - neo4j
+    environment:
+      DATABASE_URL: postgresql+psycopg://traffic1:traffic1@postgres:5432/trafficdb1
+      BROKER_URL: redis://redis:6379/0
+      RESULT_BACKEND_URL: redis://redis:6379/1
+      STORAGE_BACKEND: local
+      MODEL_PATH: yolov8n.pt
+      FRAME_SKIP: 5
+      CONFIDENCE_THRESHOLD: 0.35
+      GRAPH_ENABLED: "true"
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: password
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: traffic-video-analytics-worker
+    command: celery -A app.worker.celery_app worker --loglevel=info --pool=solo
+    depends_on:
+      - redis
+      - postgres
+      - neo4j
+    environment:
+      DATABASE_URL: postgresql+psycopg://traffic1:traffic1@postgres:5432/trafficdb1
+      BROKER_URL: redis://redis:6379/0
+      RESULT_BACKEND_URL: redis://redis:6379/1
+      STORAGE_BACKEND: local
+      MODEL_PATH: yolov8n.pt
+      FRAME_SKIP: 5
+      CONFIDENCE_THRESHOLD: 0.35
+      GRAPH_ENABLED: "true"
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: password
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: traffic-video-analytics-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: traffic-video-analytics-postgres
+    environment:
+      POSTGRES_DB: trafficdb1
+      POSTGRES_USER: traffic1
+      POSTGRES_PASSWORD: traffic1
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: traffic-video-analytics-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/password
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  neo4j_data:

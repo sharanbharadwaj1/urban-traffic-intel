@@ -1,0 +1,59 @@
+No. If you set it in `.env`, you do not need to change `config.py`.
+
+Why:
+- [backend/app/core/config.py](</E:/Projects/Urban Traffic Intel System/traffic-ai-platform/backend/app/core/config.py>) defines the fields
+- `.env` provides the runtime values
+- `get_settings()` loads them automatically through `BaseSettings`
+
+So this is enough in `.env`:
+
+```env
+PLATE_ENABLED=true
+ANPR_API_TOKEN=your_real_token
+```
+
+You only edit `config.py` if you want to change defaults or add new config fields.
+
+To start the backend manually from the `backend` folder:
+
+```powershell
+cd "E:\Projects\Urban Traffic Intel System\traffic-ai-platform\backend"
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Then open:
+[http://localhost:8000/](http://localhost:8000/)
+
+Important:
+the API server alone is not enough for processing jobs now. Since we moved to Celery, you also need Redis and the worker.
+
+Start Redis:
+```powershell
+docker run -p 6379:6379 redis:7-alpine
+```
+
+Start worker in another terminal from the same `backend` folder:
+```powershell
+celery -A app.worker.celery_app worker --loglevel=info --pool=solo
+```
+
+So the full local startup is:
+
+1. Redis
+2. FastAPI backend
+3. Celery worker
+
+If you want the easiest way, use Docker Compose from `backend`:
+```powershell
+docker compose up --build
+```
+
+That starts:
+- API
+- worker
+- redis
+- postgres
+- neo4j
+
+If you want, I can give you the exact “3-terminal local run steps” in a very short copy-paste form next.

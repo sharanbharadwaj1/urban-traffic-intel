@@ -22,7 +22,7 @@ services:
       CONFIDENCE_THRESHOLD: 0.35
       SAVE_EVENT_SNAPSHOTS: ${SAVE_EVENT_SNAPSHOTS:-true}
       PLATE_ENABLED: ${PLATE_ENABLED:-true}
-      ANPR_API_TOKEN: ${ANPR_API_TOKEN:-"f27d131868069151c84f1f7fcea4412a47267412"}
+      ANPR_API_TOKEN: ${ANPR_API_TOKEN:-""}
       ANPR_API_URL: ${ANPR_API_URL:-https://api.platerecognizer.com/v1/plate-reader/}
       ANPR_COUNTRY: ${ANPR_COUNTRY:-in}
       ANPR_MIN_SCORE: ${ANPR_MIN_SCORE:-0.5}

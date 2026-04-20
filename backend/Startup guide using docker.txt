@@ -1,0 +1,124 @@
+cd "E:\Projects\Urban Traffic Intel System\traffic-ai-platform\backend"
+docker compose build --no-cache
+docker compose up
+Good, that means the stack is at least coming up. Now do the next checks in this order.
+
+**1. Confirm all containers are running**
+From the `backend` folder:
+
+```powershell
+docker compose ps
+```
+
+You want to see these services up:
+- `api`
+- `worker`
+- `redis`
+- `postgres`
+- `neo4j`
+
+If `api` or `worker` is not up, inspect logs:
+```powershell
+docker compose logs api
+docker compose logs worker
+```
+
+**2. Open the backend UI**
+Go to:
+[http://localhost:8000/](http://localhost:8000/)
+
+That should open the surveillance dashboard.
+
+**3. Check health endpoint**
+Open:
+[http://localhost:8000/health](http://localhost:8000/health)
+
+You should get JSON showing:
+- status
+- storage backend
+- plate detection enabled/disabled
+- graph enabled/disabled
+- broker URL
+
+**4. Upload a sample video**
+From the dashboard:
+- choose a video file
+- submit it
+- note the `job_id`
+
+Or with curl:
+```powershell
+curl.exe -X POST "http://localhost:8000/upload-video" -F "file=@E:\path\to\your\video.mp4" -F "camera_id=cam-01"
+```
+
+**5. Watch job progress**
+Open:
+```text
+http://localhost:8000/jobs
+```
+
+and for one job:
+```text
+http://localhost:8000/jobs/<job_id>
+```
+
+If everything is working:
+- job should move from `queued` -> `running` -> `completed`
+- `processed_frames` should increase
+
+**6. Check live frame preview**
+Once the worker starts processing, open:
+```text
+http://localhost:8000/jobs/<job_id>/live-state
+```
+
+This should return:
+- `image_url`
+- `frame_index`
+- `tracked_objects`
+- `alerts`
+
+The dashboard should also start showing the annotated live frame.
+
+**7. Check events**
+Open:
+```text
+http://localhost:8000/events?job_id=<job_id>
+```
+
+You should start seeing detections/alerts there.
+
+**8. Check Neo4j only if graph is enabled**
+Open:
+[http://localhost:7474/](http://localhost:7474/)
+
+Default compose credentials:
+- user: `neo4j`
+- password: `password`
+
+If plate detection confirms a vehicle and graph writes are enabled, you should eventually see graph data.
+
+**What to do if upload works but processing doesn’t**
+Run:
+```powershell
+docker compose logs worker
+```
+
+That is the most important log now.
+
+**What to do if the UI opens but no live frame appears**
+Check:
+- worker logs
+- `/jobs/<job_id>/live-state`
+- whether events are being written
+- whether `backend/data` is getting `live/` and `snapshots/` files
+
+Best next move right now:
+1. run `docker compose ps`
+2. open `http://localhost:8000/`
+3. upload one test video
+4. if anything fails, send me:
+   - `docker compose ps`
+   - `docker compose logs api --tail=100`
+   - `docker compose logs worker --tail=100`
+

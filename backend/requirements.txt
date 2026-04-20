@@ -8,5 +8,5 @@ sqlalchemy==2.0.41
 pydantic-settings==2.10.1
 boto3==1.39.4
 neo4j==5.28.1
-celery[redis]==5.4.0
 psycopg[binary]==3.2.9
+redis==5.2.1

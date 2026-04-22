@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 
-from app.schemas.api import EventListResponse, HealthResponse, JobListResponse, JobResponse, LiveStateResponse, UploadVideoResponse
+from app.schemas.api import EventListResponse, GraphSightingListResponse, HealthResponse, JobListResponse, JobResponse, LiveStateResponse, UploadVideoResponse
 from app.services.dependencies import ServiceContainer
 from app.ui import render_upload_dashboard
 
@@ -101,3 +101,13 @@ def get_events(
     container: ServiceContainer = Depends(get_container),
 ) -> EventListResponse:
     return container.job_service.list_events(job_id=job_id, limit=limit, event_type=event_type)
+
+
+@router.get("/graph/sightings", response_model=GraphSightingListResponse, tags=["graph"])
+def get_graph_sightings(
+    camera_id: str = Query(...),
+    limit: int = Query(default=10, ge=1, le=100),
+    container: ServiceContainer = Depends(get_container),
+) -> GraphSightingListResponse:
+    items = container.graph_service.get_camera_sightings(camera_id=camera_id, limit=limit)
+    return GraphSightingListResponse(items=items, count=len(items))

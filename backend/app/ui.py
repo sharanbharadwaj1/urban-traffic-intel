@@ -43,10 +43,11 @@ def render_upload_dashboard() -> HTMLResponse:
             .badge.failed { background:rgba(180,35,24,.12); color:var(--alert); }
             .badge.queued { background:rgba(178,107,0,.12); color:var(--warn); }
             .lead, .subtle { color:var(--muted); line-height:1.5; }
-            .status-grid, .metrics, .duo { display:grid; gap:12px; }
+            .status-grid, .metrics, .duo, .trio { display:grid; gap:12px; }
             .status-grid { grid-template-columns:repeat(2, minmax(0,1fr)); margin-top:14px; }
             .metrics { grid-template-columns:repeat(4, minmax(0,1fr)); }
             .duo { grid-template-columns:repeat(2, minmax(0,1fr)); }
+            .trio { grid-template-columns:1.2fr 1fr .9fr; }
             .pill, .metric, .card {
                 background:rgba(255,255,255,.72); border:1px solid var(--border); border-radius:18px; padding:14px;
             }
@@ -82,7 +83,7 @@ def render_upload_dashboard() -> HTMLResponse:
             .shot img { width:100%; height:180px; object-fit:cover; display:block; background:#d8d0c1; }
             .shot .info { padding:12px; }
             .empty { padding:22px; border:1px dashed var(--border); border-radius:18px; background:rgba(255,255,255,.4); color:var(--muted); text-align:center; }
-            @media (max-width:1180px) { .grid-top, .layout, .stream { grid-template-columns:1fr; } .metrics, .duo, .status-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+            @media (max-width:1180px) { .grid-top, .layout, .stream, .trio { grid-template-columns:1fr; } .metrics, .duo, .status-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
             @media (max-width:720px) { .shell { padding:14px; } .metrics, .duo, .status-grid { grid-template-columns:1fr; } }
         </style>
     </head>
@@ -182,7 +183,7 @@ def render_upload_dashboard() -> HTMLResponse:
                         </div>
                     </section>
 
-                    <section class="duo">
+                    <section class="trio">
                         <div class="panel">
                             <h2>Recent Alert Feed</h2>
                             <div id="events-list" class="feed"></div>
@@ -190,6 +191,10 @@ def render_upload_dashboard() -> HTMLResponse:
                         <div class="panel">
                             <h2>Focused Job Detail</h2>
                             <div id="job-detail" class="empty">Select a job to inspect detailed processing state.</div>
+                        </div>
+                        <div class="panel">
+                            <h2>Graph Sightings</h2>
+                            <div id="graph-list" class="feed"></div>
                         </div>
                     </section>
 
@@ -211,6 +216,7 @@ def render_upload_dashboard() -> HTMLResponse:
                 healthGraph: document.getElementById("health-graph"),
                 jobsList: document.getElementById("jobs-list"),
                 eventsList: document.getElementById("events-list"),
+                graphList: document.getElementById("graph-list"),
                 gallery: document.getElementById("gallery"),
                 jobDetail: document.getElementById("job-detail"),
                 heroImage: document.getElementById("hero-image"),
@@ -387,6 +393,23 @@ def render_upload_dashboard() -> HTMLResponse:
                 }
                 setHero(shots[0] || events[0], null);
             }
+            function renderGraphSightings(items) {
+                if (!items.length) {
+                    els.graphList.innerHTML = '<div class="empty">No graph sightings available for the focused camera yet.</div>';
+                    return;
+                }
+                els.graphList.innerHTML = items.map(item => `
+                    <div class="card">
+                        <div class="row">
+                            <div style="font-weight:800;">${esc(item.plate)}</div>
+                            <span class="badge completed">${esc(item.camera_id)}</span>
+                        </div>
+                        <div class="subtle" style="margin-top:8px;">First seen ${esc(item.first_seen_at)}</div>
+                        <div class="subtle">Last seen ${esc(item.last_seen_at)}</div>
+                        <div class="subtle">Sightings ${esc(item.total_sightings)}</div>
+                    </div>
+                `).join("");
+            }
             async function submitFileJob(event) {
                 event.preventDefault();
                 const payload = await safeFetchJson("/upload-video", { method:"POST", body:new FormData(document.getElementById("file-form")) });
@@ -415,6 +438,16 @@ def render_upload_dashboard() -> HTMLResponse:
                     renderJobDetail(job);
                     const eventsPayload = await safeFetchJson(focusedJobId ? `/events?job_id=${encodeURIComponent(focusedJobId)}&limit=12` : "/events?limit=12");
                     renderEvents(eventsPayload.items || []);
+                    if (job && job.camera_id) {
+                        try {
+                            const graphPayload = await safeFetchJson(`/graph/sightings?camera_id=${encodeURIComponent(job.camera_id)}&limit=10`);
+                            renderGraphSightings(graphPayload.items || []);
+                        } catch {
+                            renderGraphSightings([]);
+                        }
+                    } else {
+                        renderGraphSightings([]);
+                    }
                     if (liveState) {
                         setHero(null, liveState);
                     }

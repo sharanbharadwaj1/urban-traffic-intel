@@ -143,6 +143,7 @@ LIMIT 50;
 - professional system documentation: [docs/PROJECT_DOCUMENTATION.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/PROJECT_DOCUMENTATION.md)
 - theory and interview guide: [docs/STUDENT_THEORETICAL_NOTES.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/STUDENT_THEORETICAL_NOTES.md)
 - production backend architecture: [docs/PRODUCTION_BACKEND_ARCHITECTURE.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/PRODUCTION_BACKEND_ARCHITECTURE.md)
+- code navigation map: [docs/CODE_NAVIGATION_MAP.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/CODE_NAVIGATION_MAP.md)
 
 ## Future Scope
 

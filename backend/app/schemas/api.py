@@ -43,6 +43,19 @@ class LiveStateResponse(BaseModel):
     tracked_objects: list[dict]
 
 
+class GraphSightingResponse(BaseModel):
+    plate: str
+    camera_id: str
+    first_seen_at: str
+    last_seen_at: str
+    total_sightings: int
+
+
+class GraphSightingListResponse(BaseModel):
+    items: list[GraphSightingResponse]
+    count: int
+
+
 class EventResponse(BaseModel):
     id: int
     job_id: str

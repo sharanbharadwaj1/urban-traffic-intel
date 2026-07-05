@@ -140,7 +140,6 @@ LIMIT 50;
 ## Documentation
 
 - professional system documentation: [docs/PROJECT_DOCUMENTATION.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/PROJECT_DOCUMENTATION.md)
-- theory and interview guide: [docs/STUDENT_THEORETICAL_NOTES.md](/E:/Projects%20Urban%20Traffic%20Intel%20System/traffic-ai-platform/docs/STUDENT_THEORETICAL_NOTES.md)
 
 ## Future Scope
 

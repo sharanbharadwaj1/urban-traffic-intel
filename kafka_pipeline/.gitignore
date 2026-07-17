@@ -1,0 +1,6 @@
+.env
+**/.env
+*.pt
+**/*.pt
+backend/data/
+debug_plate/
